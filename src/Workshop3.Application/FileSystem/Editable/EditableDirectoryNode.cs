@@ -26,4 +26,9 @@ public sealed class EditableDirectoryNode : IDirectoryNode
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     public void Add(IFileSystemNode child) => _children.Add(child.Name, child);
+
+    public void Accept(IFileSystemVisitor visitor)
+    {
+        visitor.Visit(this);
+    }
 }

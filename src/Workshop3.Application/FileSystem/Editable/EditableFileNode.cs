@@ -22,4 +22,9 @@ public sealed class EditableFileNode(
         content = _content;
         return true;
     }
+    
+    public void Accept(IFileSystemVisitor visitor)
+    {
+        visitor.Visit(this);
+    }
 }

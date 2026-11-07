@@ -1,250 +1,67 @@
+using System.Diagnostics;
 using Workshop3.Application.FileSystem;
-using Workshop3.Application.FileSystem.Content;
+using Workshop3.Application.FileSystem.Visitors;
 using Workshop3.Application.Models;
+using Workshop3.Application.Workspaces.Editing;
+using Workshop3.Application.Workspaces.Editing.KeyHandling;
 
 namespace Workshop3.Application.Workspaces;
 
 public sealed class Workspace(IFileSystemNode fileSystem)
 {
-    public IFileSystemNode FileSystem { get; } = fileSystem;
+    private IEditorMode _mode = new NormalEditorMode();
+
+    public IFileSystemNode FileSystem { get; private set; } = fileSystem;
 
     public IFileNode? SelectedFile { get; private set; }
 
-    public EditorMode Mode { get; private set; }
+    public EditorMode Mode => _mode.Mode;
 
     public DocumentSelection Selection { get; private set; } = DocumentSelection.Default;
 
     public void ChangeSelectedFile(IFileNode? file)
     {
         SelectedFile = file;
-        Mode = EditorMode.Normal;
+        _mode = new InsertEditorMode();
         Selection = DocumentSelection.Default;
     }
 
-    public void OnKeyPressed(Key key)
+    public void MoveTo(DocumentPosition end)
     {
-        if (key.Is("ArrowRight")
-            || (key.Is("l") && Mode is not EditorMode.Insert))
-        {
-            MoveRight();
-        }
-        else if (key.Is("ArrowLeft")
-                 || (key.Is("h") && Mode is not EditorMode.Insert))
-        {
-            MoveLeft();
-        }
-        else if (key.Is("ArrowDown")
-                 || (key.Is("j") && Mode is not EditorMode.Insert))
-        {
-            MoveDown();
-        }
-        else if (key.Is("ArrowUp")
-                 || (key.Is("k") && Mode is not EditorMode.Insert))
-        {
-            MoveUp();
-        }
-        else if (key.Is("v") && Mode is EditorMode.Normal)
-        {
-            Mode = EditorMode.Visual;
-        }
-        else if (key.Is("i") && Mode is EditorMode.Normal)
-        {
-            Mode = EditorMode.Insert;
-        }
-        else if ((key.Is("Escape") && Mode is not EditorMode.Normal)
-                 || (key.Is("v") && Mode is EditorMode.Visual))
-        {
-            Mode = EditorMode.Normal;
-            Selection = Selection.WithStart(Selection.End);
-        }
-        else if (Mode is EditorMode.Insert && (key.Is("Return") || key.Is("Enter")))
-        {
-            InsertNewLine();
-        }
-        else if (Mode is EditorMode.Insert && key.Length is 1)
-        {
-            InsertCharacter(key);
-        }
-        else if (Mode is EditorMode.Insert && key.Is("Backspace"))
-        {
-            DeleteCharacter();
-        }
+        Selection = _mode.MoveTo(Selection, end);
     }
 
-    private void MoveRight()
+    public void SwitchMode(IEditorMode mode)
     {
-        if (SelectedFile is null)
-            return;
-
-        DocumentPosition end = Selection.End;
-
-        IFileContent content = SelectedFile.GetContent();
-        ILineContent line = content.GetLine(end.Line);
-
-        if (line.Length >= end.Character + 1)
-        {
-            end = end with { Character = end.Character + 1 };
-        }
-        else if (content.LineCount > end.Line)
-        {
-            end = new DocumentPosition(Line: end.Line + 1, Character: 0);
-        }
-
-        MoveTo(end);
+        _mode = mode;
     }
 
-    private void MoveLeft()
+    public HandleKeyResult OnKeyPressed(Key key)
     {
-        if (SelectedFile is null)
-            return;
+        IWorkspaceCommand command = _mode.HandleKey(key);
+        WorkspaceCommandResult result = command.Execute(this);
 
-        DocumentPosition end = Selection.End;
-
-        IFileContent content = SelectedFile.GetContent();
-
-        if (end.Character > 0)
+        return result switch
         {
-            end = end with { Character = end.Character - 1 };
-        }
-        else if (end.Line > 0)
-        {
-            ILineContent previous = content.GetLine(end.Line - 1);
-            end = new DocumentPosition(Line: end.Line - 1, Character: previous.Length - 1);
-        }
-
-        MoveTo(end);
-    }
-
-    private void MoveUp()
-    {
-        if (SelectedFile is null)
-            return;
-
-        DocumentPosition end = Selection.End;
-
-        IFileContent content = SelectedFile.GetContent();
-
-        if (end.Line > 0)
-        {
-            ILineContent previous = content.GetLine(end.Line - 1);
-
-            end = new DocumentPosition(
-                Line: end.Line - 1,
-                Character: Math.Min(end.Character, previous.Length));
-        }
-        else
-        {
-            end = end with { Character = 0 };
-        }
-
-        MoveTo(end);
-    }
-
-    private void MoveDown()
-    {
-        if (SelectedFile is null)
-            return;
-
-        DocumentPosition end = Selection.End;
-
-        IFileContent content = SelectedFile.GetContent();
-
-        if (end.Line < content.LineCount - 1)
-        {
-            ILineContent next = content.GetLine(end.Line + 1);
-
-            end = new DocumentPosition(
-                Line: end.Line + 1,
-                Character: Math.Min(end.Character, next.Length));
-        }
-        else
-        {
-            ILineContent line = content.GetLine(end.Line);
-            end = end with { Character = line.Length };
-        }
-
-        MoveTo(end);
-    }
-
-    private void InsertNewLine()
-    {
-        if (SelectedFile is null
-            || SelectedFile.TryGetEditableContent(out IEditableFileContent? content) is false)
-        {
-            return;
-        }
-
-        DocumentPosition position = Selection.End;
-
-        IEditableLineContent line = content.GetEditableLine(position.Line);
-        var lineContent = line.ToString();
-
-        string remainer = lineContent.Length > position.Character
-            ? lineContent[position.Character..]
-            : string.Empty;
-
-        if (remainer.Length > 0)
-        {
-            line.RemoveAt(position.Character, length: remainer.Length);
-        }
-
-        content.InsertLine(position.Line + 1, remainer);
-        MoveTo(new DocumentPosition(position.Line + 1, 0));
-    }
-
-    private void InsertCharacter(Key key)
-    {
-        if (SelectedFile is null
-            || SelectedFile.TryGetEditableContent(out IEditableFileContent? content) is false)
-        {
-            return;
-        }
-
-        DocumentPosition position = Selection.End;
-
-        IEditableLineContent line = content.GetEditableLine(position.Line);
-        line.InsertAt(position.Character, key.Value);
-
-        position = position with { Character = position.Character + 1 };
-        MoveTo(position);
-    }
-
-    private void DeleteCharacter()
-    {
-        if (SelectedFile is null
-            || SelectedFile.TryGetEditableContent(out IEditableFileContent? content) is false)
-            return;
-
-        DocumentPosition position = Selection.End;
-        IEditableLineContent line = content.GetEditableLine(position.Line);
-
-        if (position.Character > 0)
-        {
-            line.RemoveAt(position.Character - 1);
-
-            position = position with { Character = position.Character - 1 };
-            MoveTo(position);
-        }
-        else if (position.Line > 0)
-        {
-            IEditableLineContent previousLine = content.GetEditableLine(position.Line - 1);
-            int length = previousLine.Length;
-
-            previousLine.InsertAt(length, line.ToString());
-            content.RemoveLine(position.Line);
-
-            position = new DocumentPosition(Line: position.Line - 1, Character: length);
-            MoveTo(position);
-        }
-    }
-
-    private void MoveTo(DocumentPosition end)
-    {
-        Selection = Mode switch
-        {
-            EditorMode.Normal or EditorMode.Insert => Selection.WithStart(end).WithEnd(end),
-            EditorMode.Visual => Selection.WithEnd(end),
-            _ => throw new ArgumentOutOfRangeException(nameof(end)),
+            WorkspaceCommandResult.Success => new HandleKeyResult.Success(),
+            WorkspaceCommandResult.Failure failure => new HandleKeyResult.Failure(failure.ErrorMessage),
+            _ => throw new UnreachableException(),
         };
+    }
+
+    public IFileSystemNode CreateSnapshot()
+    {
+        var visitor = new FileSystemCopyVisitor();
+        FileSystem.Accept(visitor);
+
+        return visitor.Clone;
+    }
+
+    public void RestoreSnapshot(IFileSystemNode node)
+    {
+        var visitor = new FileSystemCopyVisitor();
+        node.Accept(visitor);
+
+        FileSystem = visitor.Clone;
     }
 }

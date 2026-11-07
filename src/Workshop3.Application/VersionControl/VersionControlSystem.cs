@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Workshop3.Application.FileSystem;
 using Workshop3.Application.FileSystem.Content;
+using Workshop3.Application.FileSystem.Enumeration;
+using Workshop3.Application.Models;
 using Workshop3.Application.VersionControl.CommitStorage;
 using Workshop3.Application.VersionControl.Files;
 using Workshop3.Application.VersionControl.Metadata;
@@ -62,18 +64,6 @@ public sealed class VersionControlSystem(
         return builder.Build();
     }
 
-    public VersionControlHash CreateObject(string content)
-    {
-        byte[] contentBytes = Encoding.Default.GetBytes(content);
-        byte[] hashBytes = SHA1.HashData(contentBytes);
-
-        var hash = new VersionControlHash(Convert.ToHexString(hashBytes));
-
-        objectStorage.CreateObject(hash, content);
-
-        return hash;
-    }
-
     public VersionControlHash CreateCommit(IFileSystemNode fileSystem, string message)
     {
         Commit[] commits = commitStorage.EnumerateCommits().ToArray();
@@ -85,18 +75,27 @@ public sealed class VersionControlSystem(
         Commit? parentCommit = commits.SingleOrDefault(commit => parentHashes.Contains(commit.Hash) is false);
 
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+        var commitFiles = new List<CommitFile>();
 
         if (parentCommit is not null)
         {
             hash.AppendData(Encoding.Default.GetBytes(parentCommit.Hash.Value));
         }
 
-        CalculateHash(hash, fileSystem);
+        foreach (FlattenedFile flattenedFile in fileSystem.Flatten())
+        {
+            IFileContent content = flattenedFile.File.GetContent();
+
+            hash.AppendData(Encoding.Default.GetBytes(flattenedFile.File.Name));
+            hash.AppendData(Encoding.Default.GetBytes(content.ToString()));
+
+            VersionControlHash fileHash = CreateObject(content.ToString());
+
+            var commitFile = new CommitFile(Path: flattenedFile.FullPath, ObjectHash: fileHash);
+            commitFiles.Add(commitFile);
+        }
 
         var commitHash = new VersionControlHash(Convert.ToHexString(hash.GetCurrentHash()));
-
-        var commitFiles = new List<CommitFile>();
-        CalculateCommitFiles(fileSystem, string.Empty, commitFiles);
 
         var commit = new Commit(
             commitHash,
@@ -124,51 +123,16 @@ public sealed class VersionControlSystem(
         metadataStorage.UpdateHeadCommitHash(hash);
     }
 
-    private void CalculateHash(
-        IncrementalHash hash,
-        IFileSystemNode node)
+    private VersionControlHash CreateObject(string content)
     {
-        if (node is IFileNode file)
-        {
-            IFileContent content = file.GetContent();
+        byte[] contentBytes = Encoding.Default.GetBytes(content);
+        byte[] hashBytes = SHA1.HashData(contentBytes);
 
-            hash.AppendData(Encoding.Default.GetBytes(file.Name));
-            hash.AppendData(Encoding.Default.GetBytes(content.ToString()));
-        }
-        else if (node is IDirectoryNode directory)
-        {
-            foreach (IFileSystemNode child in directory)
-            {
-                CalculateHash(hash, child);
-            }
-        }
-    }
+        var hash = new VersionControlHash(Convert.ToHexString(hashBytes));
 
-    private void CalculateCommitFiles(
-        IFileSystemNode node,
-        string path,
-        List<CommitFile> commitFiles)
-    {
-        if (node is IFileNode file)
-        {
-            IFileContent content = file.GetContent();
-            VersionControlHash hash = CreateObject(content.ToString());
+        objectStorage.CreateObject(hash, content);
 
-            var commitFile = new CommitFile(
-                Path: Path.Combine(path, file.Name),
-                ObjectHash: hash);
-
-            commitFiles.Add(commitFile);
-        }
-        else if (node is IDirectoryNode directory)
-        {
-            string directoryPath = Path.Combine(path, directory.Name);
-
-            foreach (IFileSystemNode child in directory)
-            {
-                CalculateCommitFiles(child, directoryPath, commitFiles);
-            }
-        }
+        return hash;
     }
 
     public void Dispose() { }

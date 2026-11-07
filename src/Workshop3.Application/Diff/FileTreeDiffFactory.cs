@@ -1,5 +1,6 @@
 using Workshop3.Application.FileSystem;
 using Workshop3.Application.FileSystem.Content;
+using Workshop3.Application.FileSystem.Enumeration;
 using Workshop3.Application.Models;
 
 namespace Workshop3.Application.Diff;
@@ -10,14 +11,8 @@ public sealed class FileTreeDiffFactory
         IFileSystemNode old,
         IFileSystemNode current)
     {
-        var oldFiles = new List<FlattenedFile>();
-        var currentFiles = new List<FlattenedFile>();
-
-        Flatten(old, string.Empty, oldFiles);
-        Flatten(current, string.Empty, currentFiles);
-
-        using List<FlattenedFile>.Enumerator oldEnumerator = oldFiles.GetEnumerator();
-        using List<FlattenedFile>.Enumerator currentEnumerator = currentFiles.GetEnumerator();
+        using IEnumerator<FlattenedFile> oldEnumerator = old.Flatten().GetEnumerator();
+        using IEnumerator<FlattenedFile> currentEnumerator = current.Flatten().GetEnumerator();
 
         bool hasOld = oldEnumerator.MoveNext();
         bool hasCurrent = currentEnumerator.MoveNext();
@@ -83,26 +78,6 @@ public sealed class FileTreeDiffFactory
                     hasOld = oldEnumerator.MoveNext();
                     hasCurrent = currentEnumerator.MoveNext();
                 }
-            }
-        }
-    }
-
-    private void Flatten(
-        IFileSystemNode node,
-        string path,
-        List<FlattenedFile> files)
-    {
-        if (node is IFileNode file)
-        {
-            files.Add(new FlattenedFile(Path.Combine(path, file.Name), file));
-        }
-        else if (node is IDirectoryNode directory)
-        {
-            string directoryPath = Path.Combine(path, directory.Name);
-
-            foreach (IFileSystemNode child in directory)
-            {
-                Flatten(child, directoryPath, files);
             }
         }
     }
