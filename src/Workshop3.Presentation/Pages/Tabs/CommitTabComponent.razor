@@ -1,0 +1,119 @@
+@using System.Diagnostics.CodeAnalysis
+@using Phazor.Components
+@using Phazor.Components.Models
+@using Workshop3.Application.Diff
+@using Workshop3.Application.FileSystem
+@using Workshop3.Application.VersionControl
+@using Workshop3.Presentation.Components.Diff
+@using Workshop3.Presentation.Components.Editor
+@using HorizontalAlignment = Phazor.Components.Models.HorizontalAlignment
+@namespace Workshop3.Presentation.Pages.Tabs
+
+<PhazorHStack
+    Horizontal="HorizontalDistribution.Around"
+    Vertical="VerticalAlignment.Stretch"
+    Gap="6px">
+
+    <PhazorVStack
+        Class="component-card"
+        Horizontal="HorizontalAlignment.Stretch"
+        Vertical="VerticalDistribution.Top">
+
+        @if (_selectedDiff is not null)
+        {
+            <FileNodeContentDiffComponent Diff="_selectedDiff"/>
+        }
+
+    </PhazorVStack>
+
+    <PhazorVStack
+        Horizontal="HorizontalAlignment.Stretch"
+        Vertical="VerticalDistribution.Top"
+        Style="flex-basis: 20%; flex-grow: 0"
+        Gap="12px"
+        Class="component-card">
+
+        <MudText Typo="Typo.body1">
+            Files
+        </MudText>
+        
+        <PhazorVStack
+            Horizontal="HorizontalAlignment.Stretch"
+            Vertical="VerticalDistribution.Top"
+            Style="flex-grow: 100"
+            Gap="6px">
+
+            @foreach (FileNodeDiff diff in _diffs)
+            {
+                <FileNodeDiffComponent Diff="diff" OnDiffSelected="OnDiffSelected"/>
+            }
+
+        </PhazorVStack>
+
+        <MudTextField
+            @bind-Value="_commitMessage"
+            Immediate="true"
+            Lines="8"
+            Style="flex-grow: 0"
+            Underline="false"
+            Class="component-card secondary"
+            Disabled="@(_diffs is [])"/>
+
+        <MudButton
+            OnClick="@OnCommited"
+            Style="flex-grow: 0"
+            Disabled="@(string.IsNullOrEmpty(_commitMessage) || _diffs is [])"
+            Variant="Variant.Filled"
+            DropShadow="false"
+            Color="Color.Primary">
+
+            Commit
+
+        </MudButton>
+
+    </PhazorVStack>
+
+</PhazorHStack>
+
+@code {
+
+    private IReadOnlyList<FileNodeDiff> _diffs = [];
+
+    private FileNodeDiff? _selectedDiff;
+    private string? _commitMessage;
+
+    [Parameter, EditorRequired, NotNull]
+    public IVersionControlSystem? VersionControlSystem { get; set; }
+
+    [Parameter, EditorRequired, NotNull]
+    public IFileSystemNode? CurrentFileSystem { get; set; }
+
+    protected override void OnInitialized()
+    {
+        RecalculateDiff();
+    }
+
+    private void OnDiffSelected(FileNodeDiff diff)
+    {
+        _selectedDiff = diff;
+        StateHasChanged();
+    }
+
+    private void OnCommited()
+    {
+        VersionControlSystem.CreateCommit(CurrentFileSystem, _commitMessage ?? string.Empty);
+        _commitMessage = null;
+        _selectedDiff = null;
+
+        RecalculateDiff();
+        StateHasChanged();
+    }
+
+    private void RecalculateDiff()
+    {
+        _diffs = new FileTreeDiffFactory()
+            .GenerateDiff(VersionControlSystem.GetHeadNode(), CurrentFileSystem)
+            .ToArray();
+    }
+
+}

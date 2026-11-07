@@ -1,0 +1,27 @@
+@using System.Diagnostics.CodeAnalysis
+@using Workshop3.Application.FileSystem
+@using Workshop3.Presentation.Abstractions.Content
+@namespace Workshop3.Presentation.Components.Files
+
+<MudTreeViewItem T="IFileSystemNode" OnClick="@OnFileClicked">
+    <BodyContent>
+        <MudText Typo="Typo.body2">
+            @File.Name
+        </MudText>
+    </BodyContent>
+</MudTreeViewItem>
+
+@code {
+
+    [Parameter, EditorRequired, NotNull]
+    public IFileNode? File { get; set; }
+    
+    [Parameter]
+    public IFileReceiver? ContentReceiver { get; set; }
+
+    private void OnFileClicked()
+    {
+        ContentReceiver?.OnFileChanged(File);
+    }
+
+}

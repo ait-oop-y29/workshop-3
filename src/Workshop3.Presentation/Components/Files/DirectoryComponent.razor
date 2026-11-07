@@ -1,0 +1,43 @@
+@using System.Diagnostics.CodeAnalysis
+@using Workshop3.Application.FileSystem
+@using Workshop3.Presentation.Abstractions.Content
+@namespace Workshop3.Presentation.Components.Files
+
+<MudTreeViewItem T="IFileSystemNode" OnClick="@OnDirectoryClicked" Expanded="true">
+
+    <BodyContent>
+        <MudText Typo="Typo.body2">
+            @Directory.Name
+        </MudText>
+    </BodyContent>
+    <ChildContent>
+        @foreach (IFileSystemNode child in Directory)
+        {
+            if (child is IFileNode file)
+            {
+                <FileComponent File="file" ContentReceiver="ContentReceiver"/>
+            }
+
+            if (child is IDirectoryNode directory)
+            {
+                <DirectoryComponent Directory="directory" ContentReceiver="ContentReceiver"/>
+            }
+        }
+    </ChildContent>
+
+</MudTreeViewItem>
+
+@code {
+
+    [Parameter, EditorRequired, NotNull]
+    public IDirectoryNode? Directory { get; set; }
+
+    [Parameter]
+    public IFileReceiver? ContentReceiver { get; set; }
+    
+    private void OnDirectoryClicked()
+    {
+        ContentReceiver?.OnFileChanged(null);
+    }
+
+}

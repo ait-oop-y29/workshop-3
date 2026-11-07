@@ -1,0 +1,90 @@
+.component-card {
+    background-color: #eaeaea;
+    border-radius: var(--editor-border-radius-secondary);
+    padding: 12px;
+}
+
+.component-card.secondary {
+    border-width: 1px;
+    border-color: gray;
+    border-style: solid;
+    border-radius: var(--editor-border-radius-tetriaty);
+    padding: 6px;
+    
+    &:has(:focus) {
+        border-color: blue!important;
+    }
+}
+
+.component-code-block, .component-code-block * {
+    font-family: 'JetBrains Mono' !important;
+    white-space: pre-wrap !important;
+}
+
+.document-selection * {
+    color: transparent;
+}
+
+.document-selection-normal {
+    background-color: black;
+    animation: vim-blink 1s steps(2, start) infinite;
+}
+
+.document-selection-insert::before {
+    content: '_';
+    position: absolute;
+    color: transparent;
+    background-color: black;
+    width: 2px;
+    animation: vim-blink 1s steps(2, start) infinite;
+}
+
+.document-selection-visual {
+    background-color: black;
+    opacity: 0.2;
+}
+
+@keyframes vim-blink {
+    to {
+        background-color: transparent;
+    }
+}
+
+.file-diff-added {
+    color: green!important;
+}
+
+.file-diff-changed {
+    color: blue!important;
+}
+
+.file-diff-removed {
+    color: red!important;
+}
+
+.content-diff-added {
+    background: rgb(0 128 0 / 0.35);
+    
+    &::before {
+        content: '+';
+        padding-right: 20px;
+    }
+}
+
+.content-diff-changed {
+    background: rgb(0 0 255 / 0.35);
+
+    &::before {
+        content: '+-';
+        padding-right: 20px;
+    }
+}
+
+.content-diff-removed {
+    background: rgb(255 0 0 / 0.35);
+
+    &::before {
+        content: '-';
+        padding-right: 20px;
+    }
+}

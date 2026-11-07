@@ -1,0 +1,125 @@
+﻿@page "/"
+@using System.IO.Compression
+@using Phazor.Components
+@using Phazor.Components.Models
+@using Workshop3.Application.FileSystem
+@using Workshop3.Application.FileSystem.Editable
+@using Workshop3.Application.VersionControl
+@using Workshop3.Application.Workspaces
+@using Workshop3.Presentation.Pages.Tabs
+@using HorizontalAlignment = Phazor.Components.Models.HorizontalAlignment
+
+<PageTitle>Editor</PageTitle>
+
+<PhazorVStack
+    Horizontal="HorizontalAlignment.Stretch"
+    Vertical="VerticalDistribution.Top"
+    Class="pa-2"
+    Style="width: 100dvw; height: 100dvh"
+    Gap="6px">
+
+    <PhazorHStack
+        Horizontal="HorizontalDistribution.Left"
+        Variant="PhazorStackVariant.Compact"
+        Style="flex-grow: 0; flex-shrink: 1"
+        Gap="12px">
+
+        @foreach (TabDescriptor tab in _tabs)
+        {
+            TabDescriptor currentTab = tab;
+
+            <MudButton
+                StartIcon="@currentTab.IconName"
+                OnClick="@(() => OnSelectedTabChanged(currentTab))"
+                Size="Size.Small"
+                DropShadow="false"
+                Variant="Variant.Filled"
+                Color="@(currentTab == _selectedTab ? Color.Dark : Color.Default)">
+
+                @currentTab.DisplayName
+
+            </MudButton>
+        }
+
+    </PhazorHStack>
+
+    <PhazorVStack
+        Horizontal="HorizontalAlignment.Stretch"
+        Vertical="VerticalDistribution.Top"
+        Style="flex-grow: 1">
+
+        @if (_selectedTab is not null)
+        {
+            @_selectedTab.RenderFragment
+        }
+
+    </PhazorVStack>
+
+</PhazorVStack>
+
+@code {
+
+    private static readonly IFileSystemNode MockFileSystem = new EditableDirectoryNode("project")
+    {
+        new EditableFileNode(".editorconfig",
+            """
+                   [*.cs]
+                   dotnet_diagnostic.CA1000.severy = none
+                   """),
+        new EditableDirectoryNode("src")
+        {
+            new EditableDirectoryNode("Console")
+            {
+                new EditableFileNode("Program.cs",
+                    """
+                                   using System;
+                                   Console.WriteLine("Hello, world!");
+                                   """),
+            },
+        },
+    };
+
+    private readonly TabDescriptor[] _tabs;
+
+    private TabDescriptor? _selectedTab;
+
+    public Home()
+    {
+        var workspace = new Workspace(MockFileSystem);
+        var versionControlSystem = new ZipVersionControlSystem(new ZipArchive(new MemoryStream(), ZipArchiveMode.Update));
+
+        _tabs =
+        [
+            new TabDescriptor(
+                "Editor",
+                Icons.Material.Filled.Folder,
+                @<EditorTabComponent
+                    Workspace="workspace"/>),
+
+            new TabDescriptor(
+                "Commit",
+                Icons.Material.Filled.Commit,
+                @<CommitTabComponent
+                    CurrentFileSystem="workspace.FileSystem"
+                    VersionControlSystem="versionControlSystem"/>),
+
+            new TabDescriptor(
+                "History",
+                Icons.Material.Filled.History,
+                @<HistoryTabComponent
+                    Workspace="workspace"
+                    VersionControlSystem="versionControlSystem"/>)
+        ];
+    }
+
+    protected override void OnInitialized()
+    {
+        _selectedTab = _tabs.FirstOrDefault();
+    }
+
+    private void OnSelectedTabChanged(TabDescriptor tab)
+    {
+        _selectedTab = tab;
+    }
+
+}

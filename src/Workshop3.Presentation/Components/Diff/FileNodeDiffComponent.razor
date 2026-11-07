@@ -1,0 +1,38 @@
+@using System.Diagnostics.CodeAnalysis
+@using Phazor.Components
+@using Phazor.Components.Models
+@using Workshop3.Application.Diff
+
+@{
+    var (cls, path) = Diff switch
+    {
+        FileNodeDiff.Added added => ("file-diff-added", added.Path),
+        FileNodeDiff.Changed changed => ("file-diff-changed", changed.Path),
+        FileNodeDiff.Removed removed => ("file-diff-removed", removed.Path),
+        _ => throw new ArgumentOutOfRangeException(nameof(Diff)),
+    };
+
+    cls += " mud-label-full";
+}
+
+<MudButton
+    Class="@cls"
+    OnClick="@(() => OnDiffSelected.InvokeAsync(Diff))">
+
+    <PhazorHStack Horizontal="HorizontalDistribution.Left">
+        <MudText Typo="Typo.body1" Align="Align.Left">
+            @path
+        </MudText>
+    </PhazorHStack>
+
+</MudButton>
+
+@code {
+
+    [Parameter, EditorRequired, NotNull]
+    public FileNodeDiff? Diff { get; set; }
+
+    [Parameter]
+    public EventCallback<FileNodeDiff> OnDiffSelected { get; set; }
+
+}

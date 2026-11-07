@@ -1,0 +1,7 @@
+.mud-button-root {
+    border-radius: var(--editor-border-radius-tetriaty)!important;
+}
+
+.mud-label-full {
+    width: 100%;
+}

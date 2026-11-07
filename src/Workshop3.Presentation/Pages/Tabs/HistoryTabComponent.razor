@@ -1,0 +1,160 @@
+@using System.Diagnostics.CodeAnalysis
+@using Phazor.Components
+@using Phazor.Components.Models
+@using Workshop3.Application.Diff
+@using Workshop3.Application.FileSystem
+@using Workshop3.Application.VersionControl
+@using Workshop3.Application.VersionControl.Models
+@using Workshop3.Application.Workspaces
+@using Workshop3.Presentation.Components.Diff
+@using Workshop3.Presentation.Components.Editor
+@using HorizontalAlignment = Phazor.Components.Models.HorizontalAlignment
+@namespace Workshop3.Presentation.Pages.Tabs
+
+<PhazorHStack
+    Horizontal="HorizontalDistribution.Around"
+    Vertical="VerticalAlignment.Stretch"
+    Gap="6px">
+
+    <PhazorVStack
+        Class="component-card"
+        Horizontal="HorizontalAlignment.Stretch"
+        Vertical="VerticalDistribution.Top">
+
+        @if (_selectedDiff is not null)
+        {
+            <FileNodeContentDiffComponent Diff="_selectedDiff"/>
+        }
+
+    </PhazorVStack>
+
+    <PhazorVStack
+        Horizontal="HorizontalAlignment.Stretch"
+        Vertical="VerticalDistribution.Top"
+        Style="flex-basis: 20%; flex-grow: 0"
+        Gap="12px"
+        Class="component-card">
+
+        <PhazorScroll Style="flex-basis: 50%; flex-grow: 0">
+
+            <PhazorVStack
+                Horizontal="HorizontalAlignment.Stretch"
+                Vertical="VerticalDistribution.Top"
+                Gap="12px">
+
+                <MudText Typo="Typo.body1">
+                    Commits
+                </MudText>
+
+                @foreach (Commit commit in VersionControlSystem.EnumerateCommits())
+                {
+                    <MudButton
+                        Class="component-card secondary"
+                        OnClick="@(() => OnCommitSelected(commit))"
+                        Disabled="@(commit == _selectedCommit)">
+
+                        <PhazorVStack
+                            Horizontal="HorizontalAlignment.Stretch"
+                            Style="flex-grow: 0">
+
+                            <MudText Typo="Typo.caption">
+                                @commit.Hash.Value
+                            </MudText>
+                            <MudText Typo="Typo.h5" Align="Align.Left">
+                                @commit.Message
+                            </MudText>
+
+                            <PhazorHStack
+                                Horizontal="HorizontalDistribution.Right">
+
+                                <MudButton
+                                    Size="Size.Small"
+                                    Variant="Variant.Filled"
+                                    OnClick="@(() => OnRollbackClicked(commit))">
+
+                                    Rollback
+
+                                </MudButton>
+
+                            </PhazorHStack>
+
+                        </PhazorVStack>
+
+                    </MudButton>
+                }
+
+                <MudSpacer/>
+
+            </PhazorVStack>
+
+        </PhazorScroll>
+
+        <PhazorScroll Style="flex-basis: 50%; flex-grow: 0">
+
+            <PhazorVStack
+                Horizontal="HorizontalAlignment.Stretch"
+                Vertical="VerticalDistribution.Top">
+
+                <MudText Typo="Typo.body1">
+                    Diff
+                </MudText>
+
+                @foreach (FileNodeDiff diff in _diffs)
+                {
+                    <FileNodeDiffComponent Diff="diff" OnDiffSelected="@OnDiffSelected"/>
+                }
+
+            </PhazorVStack>
+
+        </PhazorScroll>
+
+    </PhazorVStack>
+
+</PhazorHStack>
+
+
+@code {
+
+    private Commit? _selectedCommit;
+    private FileNodeDiff? _selectedDiff;
+    private IReadOnlyList<FileNodeDiff> _diffs = [];
+
+    [Parameter, EditorRequired, NotNull]
+    public Workspace? Workspace { get; set; }
+
+    [Parameter, EditorRequired, NotNull]
+    public IVersionControlSystem? VersionControlSystem { get; set; }
+
+    private void OnDiffSelected(FileNodeDiff diff)
+    {
+        _selectedDiff = diff;
+        StateHasChanged();
+    }
+
+    private void OnCommitSelected(Commit commit)
+    {
+        _selectedCommit = commit;
+
+        _diffs = new FileTreeDiffFactory()
+            .GenerateDiff(
+                VersionControlSystem.GetNodeByHash(commit.ParentHash),
+                VersionControlSystem.GetNodeByHash(commit.Hash))
+            .ToArray();
+
+        _selectedDiff = null;
+
+        StateHasChanged();
+    }
+
+    private void OnRollbackClicked(Commit commit)
+    {
+        IFileSystemNode node = VersionControlSystem.GetNodeByHash(commit.Hash);
+        VersionControlSystem.RollbackTo(commit.Hash);
+
+        _selectedDiff = null;
+        _selectedCommit = commit;
+
+        // TODO: restore the tree
+    }
+
+}

@@ -1,0 +1,114 @@
+@using System.Diagnostics.CodeAnalysis
+@using Workshop3.Application.Models
+@using Workshop3.Application.Workspaces
+@namespace Workshop3.Presentation.Components.Editor
+
+<MudText
+    Style=" grid-column: 1; grid-row: 1; z-index: 100"
+    Class="component-code-block document-selection">
+
+    @foreach (IEnumerable<DocumentPosition> line in EnumerateLines())
+    {
+        using IEnumerator<DocumentPosition> enumerator = line.GetEnumerator();
+
+        if (enumerator.MoveNext())
+        {
+            bool hasNext;
+
+            do
+            {
+                hasNext = CountConsecutivePositions(enumerator, out bool contains, out int count);
+
+                if (contains)
+                {
+                    <span class="@SelectionClass">@(new string('_', count))</span>
+                }
+                else
+                {
+                    <span>@(new string('-', count))</span>
+                }
+            }
+            while (hasNext);
+        }
+
+        @('\n')
+    }
+
+</MudText>
+
+@code {
+
+    private string SelectionClass => EditorMode switch
+    {
+        EditorMode.Normal => "document-selection-normal",
+        EditorMode.Insert => "document-selection-insert",
+        EditorMode.Visual => "document-selection-visual",
+        _ => throw new ArgumentOutOfRangeException(),
+    };
+
+    [Parameter, EditorRequired, NotNull]
+    public string? Content { get; set; }
+
+    [Parameter, EditorRequired, NotNull]
+    public DocumentSelection? Selection { get; set; }
+    
+    [Parameter, EditorRequired]
+    public EditorMode EditorMode { get; set; }
+
+    private IEnumerable<IEnumerable<DocumentPosition>> EnumerateLines()
+    {
+        using CharEnumerator enumerator = Content.GetEnumerator();
+
+        var line = 0;
+
+        while (enumerator.MoveNext())
+        {
+            yield return EnumeratePositions(line, enumerator);
+            line++;
+        }
+
+        static IEnumerable<DocumentPosition> EnumeratePositions(
+            int line,
+            IEnumerator<char> enumerator)
+        {
+            var character = 0;
+
+            while (enumerator.Current is not '\n')
+            {
+                yield return new DocumentPosition(line, character++);
+
+                if (enumerator.MoveNext() is false)
+                    break;
+            }
+
+            yield return new DocumentPosition(line, character);
+        }
+    }
+
+    /// <returns>HasNext</returns>
+    private bool CountConsecutivePositions(
+        IEnumerator<DocumentPosition> enumerator,
+        out bool contains,
+        out int count)
+    {
+        count = 1;
+        contains = Selection.Value.Contains(enumerator.Current);
+
+        while (enumerator.MoveNext())
+        {
+            DocumentPosition current = enumerator.Current;
+
+            if (Selection.Value.Contains(current) == contains)
+            {
+                count++;
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+}

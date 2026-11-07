@@ -1,0 +1,29 @@
+@using Workshop3.Application.FileSystem
+@using Workshop3.Presentation.Abstractions.Content
+@namespace Workshop3.Presentation.Components.Files
+
+@if (Element is not null)
+{
+    <MudTreeView T="IFileSystemNode" Dense="true" Hover="false" AutoExpand="true">
+        @if (Element is IFileNode file)
+        {
+            <FileComponent File="file" ContentReceiver="FileReceiver"/>
+        }
+
+        @if (Element is IDirectoryNode directory)
+        {
+            <DirectoryComponent Directory="directory" ContentReceiver="FileReceiver"/>
+        }
+
+    </MudTreeView>
+}
+
+@code {
+
+    [Parameter]
+    public IFileSystemNode? Element { get; set; }
+    
+    [Parameter]
+    public IFileReceiver? FileReceiver { get; set; }
+
+}

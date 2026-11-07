@@ -1,0 +1,40 @@
+@using System.Diagnostics.CodeAnalysis
+@using DiffPlex.DiffBuilder
+@using DiffPlex.DiffBuilder.Model
+@using Workshop3.Application.Diff
+@namespace Workshop3.Presentation.Components.Editor
+
+@{
+    var (oldContent, newContent) = Diff switch
+    {
+        FileNodeDiff.Added added => (string.Empty, added.File.GetContent().ToString()),
+        FileNodeDiff.Changed changed => (changed.OldFile.GetContent().ToString(), changed.NewFile.GetContent().ToString()),
+        FileNodeDiff.Removed removed => (removed.File.GetContent().ToString(), string.Empty),
+        _ => throw new ArgumentOutOfRangeException(nameof(Diff)),
+    };
+}
+
+<div class="component-code-block">
+    
+    @foreach (DiffPiece line in InlineDiffBuilder.Diff(oldContent, newContent, ignoreWhiteSpace: false).Lines)
+    {
+        <p class="@GetLineClass(line.Type)">@line.Text</p>
+    }
+</div>
+
+@code {
+
+    [Parameter, EditorRequired, NotNull]
+    public FileNodeDiff? Diff { get; set; }
+
+    private string GetLineClass(ChangeType type) => type switch
+    {
+        ChangeType.Unchanged => string.Empty,
+        ChangeType.Deleted => "content-diff-removed",
+        ChangeType.Inserted => "content-diff-added",
+        ChangeType.Imaginary => string.Empty,
+        ChangeType.Modified => "content-diff-changed",
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null),
+    };
+
+}

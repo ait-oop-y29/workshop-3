@@ -1,0 +1,113 @@
+@namespace Workshop3.Presentation.Pages.Tabs
+@using System.Diagnostics.CodeAnalysis
+@using Phazor.Components
+@using Phazor.Components.Models
+@using Workshop3.Application.FileSystem
+@using Workshop3.Application.Models
+@using Workshop3.Application.Workspaces
+@using Workshop3.Presentation.Abstractions.Keyboard
+@using Workshop3.Presentation.Components.Editor
+@using Workshop3.Presentation.Components.Files
+@using HorizontalAlignment = Phazor.Components.Models.HorizontalAlignment
+@implements Workshop3.Presentation.Abstractions.Content.IFileReceiver
+@implements Workshop3.Presentation.Abstractions.Keyboard.IKeyboardEventHandler
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+<PhazorHStack
+    Horizontal="HorizontalDistribution.Around"
+    Vertical="VerticalAlignment.Stretch"
+    Gap="6px">
+
+    <PhazorVStack
+        Class="component-card"
+        Horizontal="HorizontalAlignment.Stretch"
+        Vertical="VerticalDistribution.Top">
+
+        @if (Workspace.SelectedFile is not null)
+        {
+            var content = Workspace.SelectedFile.GetContent().ToString();
+
+            <MudText Typo="Typo.body1">
+                @Workspace.SelectedFile.Name
+            </MudText>
+
+            <MudDivider Vertical="false" Style="flex-grow: 0!important;"/>
+
+            <div style="display: grid">
+
+                <MudText Class="component-code-block" Style="grid-column: 1; grid-row: 1">
+                    @content
+                </MudText>
+
+                <DocumentSelectionComponent
+                    Content="@content"
+                    Selection="@Selection"
+                    EditorMode="@EditorMode"/>
+
+            </div>
+        }
+
+    </PhazorVStack>
+
+    <PhazorVStack
+        Horizontal="HorizontalAlignment.Stretch"
+        Vertical="VerticalDistribution.Top"
+        Style="flex-basis: 20%; flex-grow: 0"
+        Class="component-card">
+
+        <MudText Typo="Typo.body1">
+            Files
+        </MudText>
+
+        <MudDivider Vertical="false" Style="flex-grow: 0!important;"/>
+
+        <FileSystemComponent Element="Workspace.FileSystem" FileReceiver="this"/>
+
+    </PhazorVStack>
+
+</PhazorHStack>
+
+@code {
+
+    private readonly DotNetObjectReference<EditorTabComponent> _reference;
+
+    private EditorMode EditorMode => Workspace.Mode;
+    private DocumentSelection Selection => Workspace.Selection;
+
+    public EditorTabComponent()
+    {
+        _reference = DotNetObjectReference.Create(this);
+    }
+
+    [Parameter, EditorRequired, NotNull]
+    public Workspace? Workspace { get; set; }
+
+    public void OnFileChanged(IFileNode? file)
+    {
+        Workspace.ChangeSelectedFile(file);
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task OnKeyDownAsync(KeyDownEvent evt)
+    {
+        Console.WriteLine(evt.Key);
+        Workspace.OnKeyPressed(new Key(evt.Key));
+        StateHasChanged();
+
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Js.InvokeVoidAsync("registerKeyboardEventHandler", _reference);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Js.InvokeVoidAsync("unregisterKeyboardEventHandler", _reference);
+        _reference.Dispose();
+    }
+
+}
