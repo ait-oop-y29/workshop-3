@@ -26,4 +26,9 @@ public sealed class VersionControlDirectoryNode : IDirectoryNode
     public IEnumerator<IFileSystemNode> GetEnumerator() => _children.Select(kvp => kvp.Value).GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    
+    public void Accept(IFileSystemVisitor visitor)
+    {
+        visitor.Visit(this);
+    }
 }

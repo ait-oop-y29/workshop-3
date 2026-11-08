@@ -24,4 +24,9 @@ public sealed class VersionControlFileNode(
         content = null;
         return false;
     }
+
+    public void Accept(IFileSystemVisitor visitor)
+    {
+        visitor.Visit(this);
+    }
 }

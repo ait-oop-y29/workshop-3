@@ -4,6 +4,7 @@
 @using Workshop3.Application.Diff
 @using Workshop3.Application.FileSystem
 @using Workshop3.Application.VersionControl
+@using Workshop3.Application.Workspaces
 @using Workshop3.Presentation.Components.Diff
 @using Workshop3.Presentation.Components.Editor
 @using HorizontalAlignment = Phazor.Components.Models.HorizontalAlignment
@@ -36,7 +37,7 @@
         <MudText Typo="Typo.body1">
             Files
         </MudText>
-        
+
         <PhazorVStack
             Horizontal="HorizontalAlignment.Stretch"
             Vertical="VerticalDistribution.Top"
@@ -86,7 +87,7 @@
     public IVersionControlSystem? VersionControlSystem { get; set; }
 
     [Parameter, EditorRequired, NotNull]
-    public IFileSystemNode? CurrentFileSystem { get; set; }
+    public Workspace? Workspace { get; set; }
 
     protected override void OnInitialized()
     {
@@ -101,7 +102,10 @@
 
     private void OnCommited()
     {
-        VersionControlSystem.CreateCommit(CurrentFileSystem, _commitMessage ?? string.Empty);
+        VersionControlSystem.CreateCommit(
+            Workspace.CreateSnapshot(),
+            _commitMessage ?? string.Empty);
+
         _commitMessage = null;
         _selectedDiff = null;
 
@@ -112,7 +116,7 @@
     private void RecalculateDiff()
     {
         _diffs = new FileTreeDiffFactory()
-            .GenerateDiff(VersionControlSystem.GetHeadNode(), CurrentFileSystem)
+            .GenerateDiff(VersionControlSystem.GetHeadNode(), Workspace.CreateSnapshot())
             .ToArray();
     }
 

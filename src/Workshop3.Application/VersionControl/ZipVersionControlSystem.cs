@@ -25,9 +25,6 @@ public sealed class ZipVersionControlSystem(
     public IFileSystemNode GetNodeByHash(VersionControlHash? hash)
         => _versionControlSystem.GetNodeByHash(hash);
 
-    public VersionControlHash CreateObject(string content)
-        => _versionControlSystem.CreateObject(content);
-
     public VersionControlHash CreateCommit(IFileSystemNode fileSystem, string message)
         => _versionControlSystem.CreateCommit(fileSystem, message);
 
